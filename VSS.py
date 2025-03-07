@@ -18,17 +18,18 @@ class Task:
         self.bcet = bcet  # Best-case execution time
         self.remaining_time = get_random_execution_time(bcet, wcet)  # Random execution time
         self.period = period  # Period of the task
-        self.deadline = deadline  # Deadline for the task
+        # self.deadline = deadline  # Deadline for the task, actually useless, since for these tasks deadline = period
         self.priority = priority  # Lower value means higher priority
-        self.response_times = []  # List to track response times
-        self.release_time = 0  # Initial release time
+        self.worst_response = 0  # Worst-case response time
+        self.release_time = -1  # Unset release time
+        self.executions = 0  # Number of task executions
     
     def __repr__(self):
         return f"Task({self.name}, WCET={self.wcet}, BCET={self.bcet}, Remaining={self.remaining_time}, Priority={self.priority})"
 
 def get_ready_tasks(task_list, current_time):
     """Return tasks that are ready for execution."""
-    return [task for task in task_list if task.release_time <= current_time and task.remaining_time > 0]
+    return [task for task in task_list if task.period * task.executions <= current_time]
 
 def highest_priority_task(ready_tasks):
     """Return the highest priority task."""
@@ -51,23 +52,26 @@ def simulate(n, tasks):
         current_task = highest_priority_task(ready_tasks)
         
         if current_task:
+            if current_task.release_time == -1:
+                current_task.release_time = current_time
             dt = advance_time()
             current_time += dt
             current_task.remaining_time -= dt
             
             if current_task.remaining_time <= 0:
                 response_time = current_time - current_task.release_time
-                current_task.response_times.append(response_time)
+                current_task.worst_response = max(current_task.worst_response, response_time)
                 current_task.release_time += current_task.period  # Assign new release time
                 current_task.remaining_time = get_random_execution_time(current_task.bcet, current_task.wcet)  # Reset execution time
-                ready_tasks.remove(current_task) # Probably not necessary
+                current_task.executions += 1
+                current_task.release_time = -1
         else:
             current_time += advance_time()
     
     # Compute and print worst-case response time for each task
     for task in tasks:
-        if task.response_times:
-            print(f"Task {task.name} WCRT: {max(task.response_times)}")
+        if task.worst_response > 0:
+            print(f"Task {task.name} WCRT: {task.worst_response}")
         else:
             print(f"Task {task.name} has no completed instances.")
 
@@ -81,6 +85,7 @@ if __name__ == "__main__":
         print("Usage: python VSS.py <path_to_csv> <simulation_time>")
         sys.exit(1)
     file_path = sys.argv[1]
+    random.seed(42)
     tasks = load_tasks_from_csv(file_path)
     simulation_time = int(sys.argv[2])
     simulate(simulation_time, tasks)
