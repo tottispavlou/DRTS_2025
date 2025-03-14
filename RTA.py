@@ -7,13 +7,16 @@ def load_tasks_from_csv(file_path):
 
 def rta_test(tasks):
     tasks.sort(key=lambda x: x['Priority'])
+    wcrt = {}
     
     for i, task in enumerate(tasks):
         I = 0
         while True:
             R = I + task['WCET']
+            wcrt[task['Task']] = R  
+            
             if R > task['Deadline']:
-                return "UNSCHEDULABLE"
+                return "UNSCHEDULABLE", wcrt
             
             new_I = sum(
                 math.ceil(R / tasks[j]['Period']) * tasks[j]['WCET'] 
@@ -25,10 +28,12 @@ def rta_test(tasks):
             
             I = new_I
     
-    return "SCHEDULABLE"
+    return "SCHEDULABLE", wcrt
 
 if __name__ == "__main__":
     file_path = "Exercise/exercise-TC3.csv"
     tasks = load_tasks_from_csv(file_path)
-    result = rta_test(tasks)
+    result, wcrt = rta_test(tasks)
     print(result)
+    print("Worst-case response times:", wcrt)
+
