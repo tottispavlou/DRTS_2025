@@ -1,19 +1,29 @@
 import pandas as pd
-import random
+import numpy as np
 import sys
+from math import log
+
+K = 1.96 # Confidence level of 95% (see https://en.wikipedia.org/wiki/Standard_normal_table)
 
 class Task:
     def __init__(self, name, wcet, bcet, period, deadline, priority):
         self.name = name  # Task identifier
         self.wcet = wcet  # Worst-case execution time
         self.bcet = bcet  # Best-case execution time
-        self.remaining_time = get_random_execution_time(bcet, wcet)  # Random execution time
         self.period = period  # Period of the task
         # self.deadline = deadline  # Deadline for the task, actually useless, since for these tasks deadline = period
         self.priority = priority  # Lower value means higher priority
         self.worst_response = 0  # Worst-case response time
         self.release_time = -1  # Unset release time
         self.executions = 0  # Number of task executions
+        if wcet == bcet:
+            self.remaining_time = wcet
+            self.mean = 0
+            self.sigma = 0
+        else:
+            self.mean = log(wcet - bcet)/2  # Mean of the lognormal distribution
+            self.sigma = log(wcet - bcet)/(2*K)  # Standard deviation of the lognormal distribution
+            self.remaining_time = get_random_execution_time(bcet, wcet, self.mean, self.sigma)  # Random execution time
     
     def __repr__(self):
         return f"Task({self.name}, WCET={self.wcet}, BCET={self.bcet}, Remaining={self.remaining_time}, Priority={self.priority})"
@@ -30,10 +40,16 @@ def advance_time():
     """Define time increment."""
     return 1
 
-def get_random_execution_time(bcet, wcet):
+def get_random_execution_time(bcet, wcet, mean, sigma):
     """Generate random execution time between BCET and WCET."""
-    # Now with a simple randint, in the future we can use a more complex distribution
-    return random.randint(bcet, wcet)
+    # Model: X = BCET + LogNormal(mean, sigma)
+    if bcet == wcet:
+        return bcet
+    else:
+        value = wcet + 1
+        while value > wcet:
+            value = bcet + generator.lognormal(mean=mean, sigma=sigma)
+        return value
 
 def simulate(n, tasks):
     current_time = 0
@@ -53,7 +69,7 @@ def simulate(n, tasks):
                 response_time = current_time - current_task.release_time
                 current_task.worst_response = max(current_task.worst_response, response_time)
                 current_task.release_time += current_task.period  # Assign new release time
-                current_task.remaining_time = get_random_execution_time(current_task.bcet, current_task.wcet)  # Reset execution time
+                current_task.remaining_time = get_random_execution_time(current_task.bcet, current_task.wcet, current_task.mean, current_task.sigma)  # Reset execution time
                 current_task.executions += 1
                 current_task.release_time = -1
         else:
@@ -76,7 +92,7 @@ if __name__ == "__main__":
         print("Usage: python VSS.py <path_to_csv> <simulation_time>")
         sys.exit(1)
     file_path = sys.argv[1]
-    random.seed(42)
+    generator = np.random.default_rng(42)
     tasks = load_tasks_from_csv(file_path)
     simulation_time = int(sys.argv[2])
     simulate(simulation_time, tasks)
