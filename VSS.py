@@ -2,15 +2,6 @@ import pandas as pd
 import random
 import sys
 
-# TODO: Result obtained are wrong, need to fix the code
-# Task T1 WCRT: 1
-# Task T2 WCRT: 18
-# Task T3 WCRT: 2
-# Task T4 WCRT: 4
-# Task T5 WCRT: 6
-# Task T6 WCRT: 9
-# Task T7 WCRT: 10
-
 class Task:
     def __init__(self, name, wcet, bcet, period, deadline, priority):
         self.name = name  # Task identifier
