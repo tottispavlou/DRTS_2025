@@ -92,7 +92,7 @@ if __name__ == "__main__":
         print("Usage: python VSS.py <path_to_csv> <simulation_time>")
         sys.exit(1)
     file_path = sys.argv[1]
-    generator = np.random.default_rng(42)
+    generator = np.random.default_rng()
     tasks = load_tasks_from_csv(file_path)
     simulation_time = int(sys.argv[2])
     simulate(simulation_time, tasks)
