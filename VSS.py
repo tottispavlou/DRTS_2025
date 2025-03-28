@@ -59,7 +59,7 @@ def advance_time():
 def simulate(n, tasks):
     current_time = 0
 
-    while current_time < n and get_ready_tasks(tasks, current_time):
+    while current_time < n:
         ready_tasks = get_ready_tasks(tasks, current_time)
         current_task = highest_priority_task(ready_tasks)
 
@@ -75,6 +75,8 @@ def simulate(n, tasks):
                 current_task.worst_response = max(current_task.worst_response, response_time)
                 current_task.release_time += current_task.period
                 current_task.set_random_execution_time()
+                if not get_ready_tasks(tasks, current_time-1):
+                    break
         else:
             current_time += advance_time()
 
@@ -82,7 +84,7 @@ def simulate(n, tasks):
     tasks = sorted(tasks, key=lambda task: task.priority)
     for task in tasks:
         dict[task.name] = task.worst_response
-    return(current_time - 1, dict)
+    return(current_time, dict)
 
 def load_tasks_from_csv(file_path):
     df = pd.read_csv(file_path)
@@ -98,4 +100,8 @@ if __name__ == "__main__":
     tasks = load_tasks_from_csv(file_path)
     simulation_time = int(sys.argv[2])
     time, dict = simulate(simulation_time, tasks)
+    if time >= simulation_time:
+        print("\033[31mNot Finished")
+    else:
+        print("\033[32mFinished")
     print(f'Simulation time: {time}, {dict}')
