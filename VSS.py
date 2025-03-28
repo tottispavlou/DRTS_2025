@@ -1,36 +1,52 @@
 import pandas as pd
 import numpy as np
 import sys
+import random
 from math import log
 
-K = 0.75 # Confidence level of 77% (see https://en.wikipedia.org/wiki/Standard_normal_table)
+K = 1.036 # Confidence level of 85% (see https://en.wikipedia.org/wiki/Standard_normal_table)
 
 class Task:
     def __init__(self, name, wcet, bcet, period, deadline, priority):
         self.name = name  # Task identifier
         self.wcet = wcet  # Worst-case execution time
         self.bcet = bcet  # Best-case execution time
+        self.rcet = 0 # Randed-case execution time
         self.period = period  # Period of the task
-        # self.deadline = deadline  # Deadline for the task, actually useless, since for these tasks deadline = period
+        self.deadline = deadline  # Deadline for the task
         self.priority = priority  # Lower value means higher priority
         self.worst_response = 0  # Worst-case response time
-        self.release_time = -1  # Unset release time
-        self.executions = 0  # Number of task executions
-        if wcet == bcet:
-            self.remaining_time = wcet
-            self.mean = 0
-            self.sigma = 0
-        else:
-            self.mean = log(wcet - bcet)/2  # Mean of the lognormal distribution
-            self.sigma = log(wcet - bcet)/(2*K)  # Standard deviation of the lognormal distribution
-            self.remaining_time = get_random_execution_time(bcet, wcet, self.mean, self.sigma)  # Random execution time
+        self.remaining_time = 0 # Remaining time
+        self.release_time = 0 # When the task gets ready
+        self.generator = np.random.default_rng()
+        self.set_random_execution_time()
     
     def __repr__(self):
         return f"Task({self.name}, WCET={self.wcet}, BCET={self.bcet}, Remaining={self.remaining_time}, Priority={self.priority})"
 
+    def set_random_execution_time(self):
+        """Generate random execution time between BCET and WCET."""
+
+        if self.wcet != self.bcet:
+            self.mean = log(self.wcet - self.bcet)/2  # Mean of the lognormal distribution
+            self.sigma = log(self.wcet - self.bcet)/(2*K)  # Standard deviation of the lognormal distribution
+
+            # when bcet = 0 and wcet = 1 lognormal always returns 1 - I'm not sure if that's a mistake
+            # can process take no time? Should we skip that one? Makes no sense to me @Simon
+            self.rcet = self.wcet
+            self.rcet = self.wcet + 1
+            while self.rcet > self.wcet:
+                self.rcet = self.bcet + self.generator.lognormal(mean=self.mean, sigma=self.sigma)
+
+        else:
+            self.rcet = self.bcet
+        
+        self.remaining_time = self.rcet
+
+
 def get_ready_tasks(task_list, current_time):
     """Return tasks that are ready for execution."""
-    return [task for task in task_list if task.period * task.executions <= current_time]
+    return [task for task in task_list if task.release_time <= current_time]
 
 def highest_priority_task(ready_tasks):
     """Return the highest priority task."""
@@ -40,47 +56,33 @@ def advance_time():
     """Define time increment."""
     return 1
 
-def get_random_execution_time(bcet, wcet, mean, sigma):
-    """Generate random execution time between BCET and WCET."""
-
-    if bcet == wcet:
-        return bcet
-    else:
-        value = wcet + 1
-        while value > wcet:
-            value = bcet + generator.lognormal(mean=mean, sigma=sigma)
-        return value
-
 def simulate(n, tasks):
     current_time = 0
-    
-    while current_time <= n and any(task.remaining_time > 0 for task in tasks):
+
+    while current_time < n and get_ready_tasks(tasks, current_time):
         ready_tasks = get_ready_tasks(tasks, current_time)
         current_task = highest_priority_task(ready_tasks)
-        
+
         if current_task:
-            if current_task.release_time == -1:
-                current_task.release_time = current_time
-            dt = advance_time()
-            current_time += dt
-            current_task.remaining_time -= dt
-            
+            if current_task.rcet > 0:
+                """If execution time of the task equals 0, don't advance"""
+                dt = advance_time()
+                current_time += dt
+                current_task.remaining_time -= dt
+
             if current_task.remaining_time <= 0:
                 response_time = current_time - current_task.release_time
                 current_task.worst_response = max(current_task.worst_response, response_time)
-                current_task.release_time += current_task.period  # Assign new release time
-                current_task.remaining_time = get_random_execution_time(current_task.bcet, current_task.wcet, current_task.mean, current_task.sigma)  # Reset execution time
-                current_task.executions += 1
-                current_task.release_time = -1
+                current_task.release_time += current_task.period
+                current_task.set_random_execution_time()
         else:
             current_time += advance_time()
-    
-    # Compute and print worst-case response time for each task
+
+    dict = {}
+    tasks = sorted(tasks, key=lambda task: task.priority)
     for task in tasks:
-        if task.worst_response > 0:
-            print(f"Task {task.name} WCRT: {task.worst_response}")
-        else:
-            print(f"Task {task.name} has no completed instances.")
+        dict[task.name] = task.worst_response
+    return(current_time - 1, dict)
 
 def load_tasks_from_csv(file_path):
     df = pd.read_csv(file_path)
@@ -95,4 +97,5 @@ if __name__ == "__main__":
     generator = np.random.default_rng()
     tasks = load_tasks_from_csv(file_path)
     simulation_time = int(sys.argv[2])
-    simulate(simulation_time, tasks)
+    time, dict = simulate(simulation_time, tasks)
+    print(f'Simulation time: {time}, {dict}')
