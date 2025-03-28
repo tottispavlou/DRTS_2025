@@ -3,7 +3,7 @@ import numpy as np
 import sys
 from math import log
 
-K = 1.96 # Confidence level of 95% (see https://en.wikipedia.org/wiki/Standard_normal_table)
+K = 0.75 # Confidence level of 77% (see https://en.wikipedia.org/wiki/Standard_normal_table)
 
 class Task:
     def __init__(self, name, wcet, bcet, period, deadline, priority):
@@ -42,7 +42,7 @@ def advance_time():
 
 def get_random_execution_time(bcet, wcet, mean, sigma):
     """Generate random execution time between BCET and WCET."""
-    # Model: X = BCET + LogNormal(mean, sigma)
+
     if bcet == wcet:
         return bcet
     else:
